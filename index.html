@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Karanlık Vardiya | 3D Prototip</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#080b10; font-family:system-ui,Arial,sans-serif; touch-action:none; }
+  canvas { display:block; }
+  #hud { position:fixed; inset:0; pointer-events:none; color:#eef5ff; text-shadow:0 2px 5px #000; }
+  #top { position:absolute; left:12px; top:12px; padding:10px 12px; border:1px solid #61718188; border-radius:12px; background:#071019bb; font-size:13px; line-height:1.55; }
+  #objective { position:absolute; top:14px; left:50%; transform:translateX(-50%); max-width:65vw; text-align:center; padding:8px 12px; background:#071019bb; border:1px solid #61718188; border-radius:12px; font-size:13px; }
+  #message { position:absolute; left:50%; top:60%; transform:translate(-50%,-50%); background:#071019dd; border:1px solid #91a7b9; border-radius:12px; padding:12px 16px; font-size:15px; display:none; text-align:center; max-width:85vw; }
+  #crosshair { position:absolute; left:50%; top:50%; width:8px; height:8px; transform:translate(-50%,-50%); border:1px solid #e7f4ff; border-radius:50%; opacity:.8; }
+  #start { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:22px; background:linear-gradient(#071019d9,#071019f2); color:white; z-index:5; }
+  #panel { max-width:520px; width:100%; padding:24px; border-radius:20px; border:1px solid #516779; background:#111c28; box-shadow:0 18px 60px #0009; }
+  h1 { margin:0 0 8px; font-size:28px; } p { line-height:1.5; color:#c7d5e2; }
+  button { border:0; border-radius:12px; background:#b7ef7b; color:#17210e; padding:12px 16px; font-weight:800; font-size:15px; }
+  .small { font-size:12px; color:#9eb0bf; }
+  #mobileControls { position:fixed; inset:0; z-index:3; pointer-events:none; display:none; }
+  #stickBase { position:absolute; left:22px; bottom:28px; width:124px; height:124px; border-radius:50%; background:#b8d8ef22; border:2px solid #c8e6ff66; pointer-events:auto; }
+  #stick { position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%; background:#c8e6ff99; border:2px solid #eff8ff; }
+  .action { position:absolute; right:20px; width:66px; height:66px; border-radius:50%; background:#b8d8ef33; border:2px solid #d7ecff99; color:white; font-size:11px; pointer-events:auto; display:flex; align-items:center; justify-content:center; text-align:center; padding:4px; }
+  #useBtn { bottom:35px; } #lightBtn { bottom:112px; right:96px; } #runBtn { bottom:112px; }
+  #hint { position:fixed; bottom:8px; left:50%; transform:translateX(-50%); color:#b7c8d7; font-size:11px; z-index:2; text-align:center; width:95%; pointer-events:none; }
+  @media (pointer:coarse) { #mobileControls { display:block; } #hint { bottom:7px; } }
+</style>
+</head>
+<body>
+<div id="start"><div id="panel">
+  <div class="small">BAĞIMSIZ 3D KORKU PROTOTİPİ • SÜRÜM 0.1</div>
+  <h1>🌘 Karanlık Vardiya</h1>
+  <p>Terk edilmiş bir tesiste ganimet topla, yaratığa yakalanmadan çıkış kapısına dön. Bu ilk prototip; çevrim içi çok oyunculu henüz eklenmedi.</p>
+  <p><b>Bilgisayar:</b> WASD hareket · fare bakış · Shift koş · E ganimet al · F el feneri</p>
+  <p><b>Telefon:</b> Sol çubuk hareket · ekranın sağ tarafını sürükleyerek bakış · düğmelerle koş, fener ve eşya al</p>
+  <button id="startBtn">VARDİYAYA BAŞLA</button>
+  <p class="small">Not: İlk açılışta internet gerekir; Three.js kütüphanesi CDN'den yüklenir.</p>
+</div></div>
+<div id="hud">
+  <div id="top">💰 Ganimet: <b id="loot">0</b> / 5<br>🔋 Fener: <b id="battery">100%</b><br>👣 Tehlike: <b id="danger">Düşük</b></div>
+  <div id="objective">5 ganimet bul ve çıkışa ulaş</div>
+  <div id="crosshair"></div>
+  <div id="message"></div>
+</div>
+<div id="mobileControls">
+  <div id="stickBase"><div id="stick"></div></div>
+  <button class="action" id="useBtn">EŞYA<br>AL</button>
+  <button class="action" id="lightBtn">FENER</button>
+  <button class="action" id="runBtn">KOŞ</button>
+</div>
+<div id="hint">İpucu: Ganimetler altın rengi parlar. Yaratık yakındaysa sesini duyarsın.</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080d14);
+scene.fog = new THREE.FogExp2(0x080d14, 0.035);
+const camera = new THREE.PerspectiveCamera(76, innerWidth/innerHeight, 0.1, 90);
+camera.position.set(0,1.65,7);
+const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = false;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0x8aa6c6,0x17120d,1.25));
+const ambient = new THREE.AmbientLight(0x607080,0.25); scene.add(ambient);
+const flashlight = new THREE.SpotLight(0xe4f1ff, 38, 22, Math.PI/7, .48, 1.5);
+flashlight.position.copy(camera.position); scene.add(flashlight); scene.add(flashlight.target);
+let flashlightOn=true, battery=100, lootCount=0, gameOver=false, won=false, started=false;
+const lootEls=document.getElementById('loot'), batteryEl=document.getElementById('battery'), dangerEl=document.getElementById('danger');
+const message=document.getElementById('message'), startScreen=document.getElementById('start');
+function showMessage(t){message.innerHTML=t;message.style.display='block';setTimeout(()=>{if(!gameOver)message.style.display='none'},1900)}
+function mat(color, roughness=1, emissive=0x000000){return new THREE.MeshStandardMaterial({color,roughness,emissive,emissiveIntensity:.6});}
+const floorMat=mat(0x26313a), wallMat=mat(0x39434a), darkMat=mat(0x151d25), yellowMat=mat(0xd8ad45,.7,0x6c4300), crateMat=mat(0x66513b);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),floorMat); floor.rotation.x=-Math.PI/2; floor.position.y=0; scene.add(floor);
+const grid=new THREE.GridHelper(60,60,0x52616a,0x34414a); grid.position.y=.015; scene.add(grid);
+const solids=[];
+function box(x,y,z,sx,sy,sz,material,solid=true){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),material); m.position.set(x,y,z); scene.add(m);
+ if(solid) solids.push({x,z,hx:sx/2,hz:sz/2,sy}); return m;
+}
+// Large abandoned warehouse, with broken-up corridors
+box(0,2,-16,34,4,1,wallMat); box(0,2,16,34,4,1,wallMat);
+box(-17,2,0,1,4,32,wallMat); box(17,2,0,1,4,32,wallMat);
+box(-8,2,-7,1,4,10,wallMat); box(4,2,-9,1,4,9,wallMat);
+box(10,2,3,1,4,12,wallMat); box(-4,2,7,10,4,1,wallMat);
+box(-12,2,5,1,4,8,wallMat); box(3,2,12,12,4,1,wallMat);
+for(let i=0;i<15;i++){
+ const x=(Math.random()*26)-13, z=(Math.random()*26)-13;
+ if(Math.abs(x)<3&&z>3) continue;
+ box(x,.65,z,1.25,1.3,1.25,crateMat);
+}
+// Pipes and ceiling lamps
+for(let z=-12;z<=12;z+=6){
+ const lamp=new THREE.PointLight(0x9bb7cc, 1.0, 8); lamp.position.set(0,3.4,z); scene.add(lamp);
+ const bulb=new THREE.Mesh(new THREE.BoxGeometry(.65,.08,.18),mat(0x7896a8,.4,0x36566c)); bulb.position.set(0,3.5,z);scene.add(bulb);
+}
+// Exit marker
+const exitMat=new THREE.MeshStandardMaterial({color:0x55e38d,emissive:0x176b37,emissiveIntensity:1});
+const exitDoor=box(0,1.5,-14.9,3,3,.25,exitMat,false);
+const exitLight=new THREE.PointLight(0x3dff9a,2.5,8);exitLight.position.set(0,2.7,-13.5);scene.add(exitLight);
+
+// Loot objects
+const loots=[];
+function addLoot(x,y,z){
+ const g=new THREE.Group(); g.position.set(x,y,z);
+ const core=new THREE.Mesh(new THREE.OctahedronGeometry(.32,0),yellowMat); g.add(core);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(.43,.035,6,18),mat(0xffd879,.5,0x8a5d00));ring.rotation.x=Math.PI/2;g.add(ring);
+ const light=new THREE.PointLight(0xffbd42,1.4,4);g.add(light);scene.add(g);loots.push({group:g,active:true});
+}
+[[-12,0.8,-11],[11,0.8,-8],[12,0.8,9],[-11,0.8,11],[6,0.8,2]].forEach(p=>addLoot(...p));
+
+// Stylized creature, entirely original low-poly shape
+const monster=new THREE.Group();
+const body=new THREE.Mesh(new THREE.IcosahedronGeometry(.78,0),mat(0x384b42,.95,0x09150e));body.position.y=1.25;monster.add(body);
+const head=new THREE.Mesh(new THREE.IcosahedronGeometry(.42,0),mat(0x52664a));head.position.set(0,2.0,-.12);monster.add(head);
+for(const x of [-.18,.18]){
+ const eye=new THREE.Mesh(new THREE.SphereGeometry(.075,7,6),new THREE.MeshBasicMaterial({color:0xff342d}));eye.position.set(x,2.06,-.48);monster.add(eye);
+}
+for(const x of [-.48,.48]){
+ const leg=new THREE.Mesh(new THREE.ConeGeometry(.18,.85,5),mat(0x29362f));leg.position.set(x,.42,0);monster.add(leg);
+}
+monster.position.set(12,0,-12);scene.add(monster);
+const monsterLight=new THREE.PointLight(0xff241a,.7,3);monsterLight.position.set(0,2.1,0);monster.add(monsterLight);
+
+let yaw=0,pitch=0;
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')tryLoot();if(e.code==='KeyF')toggleLight();});
+addEventListener('keyup',e=>keys[e.code]=false);
+let pointerLocked=false;
+renderer.domElement.addEventListener('click',()=>{if(started && matchMedia('(pointer:fine)').matches) renderer.domElement.requestPointerLock?.();});
+document.addEventListener('pointerlockchange',()=>pointerLocked=document.pointerLockElement===renderer.domElement);
+document.addEventListener('mousemove',e=>{if(pointerLocked){yaw-=e.movementX*.0022;pitch-=e.movementY*.0022;pitch=Math.max(-1.2,Math.min(1.2,pitch));}});
+let joy={x:0,y:0}, joystickActive=false, joyId=null, lookId=null, lastX=0,lastY=0;
+const base=document.getElementById('stickBase'), stick=document.getElementById('stick');
+base.addEventListener('pointerdown',e=>{joystickActive=true;joyId=e.pointerId;base.setPointerCapture(e.pointerId);updateJoy(e);});
+base.addEventListener('pointermove',e=>{if(joystickActive&&e.pointerId===joyId)updateJoy(e);});
+function releaseJoy(){joystickActive=false;joy={x:0,y:0};stick.style.transform='translate(0px,0px)';}
+base.addEventListener('pointerup',releaseJoy);base.addEventListener('pointercancel',releaseJoy);
+function updateJoy(e){const r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy;const len=Math.hypot(dx,dy),max=40;if(len>max){dx=dx/len*max;dy=dy/len*max;}joy.x=dx/max;joy.y=dy/max;stick.style.transform=`translate(${dx}px,${dy}px)`;}
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.clientX>innerWidth*.38){lookId=e.pointerId;lastX=e.clientX;lastY=e.clientY;}});
+renderer.domElement.addEventListener('pointermove',e=>{if(e.pointerType==='touch'&&e.pointerId===lookId){yaw-=(e.clientX-lastX)*.006;pitch-=(e.clientY-lastY)*.006;pitch=Math.max(-1.2,Math.min(1.2,pitch));lastX=e.clientX;lastY=e.clientY;}});
+renderer.domElement.addEventListener('pointerup',e=>{if(e.pointerId===lookId)lookId=null;});
+document.getElementById('useBtn').addEventListener('pointerdown',e=>{e.preventDefault();tryLoot();});
+document.getElementById('lightBtn').addEventListener('pointerdown',e=>{e.preventDefault();toggleLight();});
+let running=false;document.getElementById('runBtn').addEventListener('pointerdown',e=>{e.preventDefault();running=true;});document.getElementById('runBtn').addEventListener('pointerup',()=>running=false);document.getElementById('runBtn').addEventListener('pointercancel',()=>running=false);
+function toggleLight(){flashlightOn=!flashlightOn;flashlight.intensity=flashlightOn?38:0;showMessage(flashlightOn?'Fener açıldı':'Fener kapatıldı');}
+function tryLoot(){
+ if(gameOver)return;
+ let best=null,bd=2.3;
+ for(const l of loots){if(!l.active)continue;const d=camera.position.distanceTo(l.group.position);if(d<bd){best=l;bd=d;}}
+ if(best){best.active=false;scene.remove(best.group);lootCount++;lootEls.textContent=lootCount;showMessage('Ganimet alındı! + değerli hurda');if(lootCount>=5)document.getElementById('objective').textContent='Tüm ganimetler toplandı! Çıkışa dön';}
+ else showMessage('Yakında alınabilecek ganimet yok.');
+}
+function endGame(win){
+ gameOver=true;won=win;message.style.display='block';
+ message.innerHTML=win?'🟢 <b>VARDİYA TAMAMLANDI!</b><br>Toplanan ganimet: '+lootCount+'/5<br><button onclick="location.reload()">TEKRAR OYNA</button>':'🔴 <b>YAKALANDIN!</b><br>Bu tesis senden birini daha aldı.<br><button onclick="location.reload()">TEKRAR DENE</button>';
+}
+function blocked(pos){
+ for(const s of solids){if(Math.abs(pos.x-s.x)<s.hx+.35 && Math.abs(pos.z-s.z)<s.hz+.35)return true;}
+ return Math.abs(pos.x)>15.9||Math.abs(pos.z)>14.9;
+}
+const clock=new THREE.Clock();
+let elapsed=0;
+document.getElementById('startBtn').addEventListener('click',()=>{started=true;startScreen.style.display='none';camera.position.set(0,1.65,10);});
+function animate(){
+ requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);elapsed+=dt;
+ if(started&&!gameOver){
+   const forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-joy.y;
+   const side=(keys.KeyD?1:0)-(keys.KeyA?1:0)+joy.x;
+   const sprint=keys.ShiftLeft||running;
+   const speed=(sprint?5.3:3.1)*dt;
+   const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed;
+   const dz=(-Math.cos(yaw)*forward+Math.sin(yaw)*side)*speed;
+   const next=camera.position.clone();next.x+=dx;next.z+=dz;
+   if(!blocked(next)){camera.position.x=next.x;camera.position.z=next.z;}
+   camera.position.y=1.65+Math.sin(elapsed*(sprint?13:8))*.025*Math.min(1,Math.abs(forward)+Math.abs(side));
+   camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+   flashlight.position.copy(camera.position);flashlight.position.y+=.05;
+   const dir=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);flashlight.target.position.copy(camera.position).add(dir.multiplyScalar(5));
+   if(flashlightOn){battery=Math.max(0,battery-dt*.12);if(battery===0){flashlightOn=false;flashlight.intensity=0;showMessage('Fenerin pili bitti!');}}batteryEl.textContent=Math.floor(battery)+'%';
+   // Monster hunts when close enough; otherwise patrols around its starting zone
+   const mp=monster.position, player=camera.position, dist=mp.distanceTo(player);
+   const target=new THREE.Vector3(player.x,0,player.z);
+   if(dist<13){const d=target.sub(mp);if(d.length()>0.1){d.normalize();mp.addScaledVector(d,dt*(dist<6?2.5:1.55));monster.rotation.y=Math.atan2(d.x,d.z);}}
+   else {mp.x=12+Math.sin(elapsed*.32)*2;mp.z=-11+Math.cos(elapsed*.25)*2;}
+   monster.position.y=Math.sin(elapsed*3)*.08;
+   dangerEl.textContent=dist<5?'ÇOK YÜKSEK':dist<10?'Yükseliyor':'Düşük';
+   monsterLight.intensity=dist<8?1.8:.5;
+   if(dist<1.25)endGame(false);
+   if(lootCount>=5 && player.distanceTo(new THREE.Vector3(0,1.5,-14.5))<2.5)endGame(true);
+ }
+ // Rotate loot and make them bob
+ for(const l of loots)if(l.active){l.group.rotation.y+=dt*.8;l.group.position.y=.8+Math.sin(elapsed*2+l.group.position.x)*.12;}
+ renderer.render(scene,camera);
+}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+</script>
+</body>
+</html>
