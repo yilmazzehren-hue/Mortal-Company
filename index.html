@@ -30,21 +30,16 @@ button{border:0;border-radius:12px;background:#b7ef7b;color:#17210e;padding:12px
 #runBtn{bottom:max(94px,calc(env(safe-area-inset-bottom) + 76px))}
 #hint{position:fixed;bottom:5px;left:50%;transform:translateX(-50%);color:#b7c8d7;font-size:10px;z-index:2;text-align:center;width:95%;pointer-events:none}
 
-#rotateWarning{position:fixed;inset:0;background:#080b10;color:#eef5ff;z-index:100;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:18px;font-weight:700}
-@media (orientation:portrait){
- #rotateWarning{display:flex}
-}
 @media (pointer:coarse){#mobileControls{display:block}}
 </style>
 </head>
 <body>
-<div id="rotateWarning">📱 Lütfen oyunu oynamak için telefonunuzu yatay (landscape) konuma çevirin!</div>
 <div id="start"><div id="panel">
-<div class="small">BAĞIMSIZ 3D KORKU PROTOTİPİ • SÜRÜM 0.2.1</div>
+<div class="small">BAĞIMSIZ 3D KORKU PROTOTİPİ • SÜRÜM 0.2.2</div>
 <h1>🌘 Karanlık Vardiya</h1>
 <p>Terk edilmiş bir tesiste ganimet topla, yaratığa yakalanmadan çıkış kapısına dön.</p>
 <p><b>Bilgisayar:</b> WASD hareket · fare bakış · Shift koş · E ganimet al · F el feneri</p>
-<p><b>Telefon (Yatay):</b> Sol çubuk hareket · ekranın sağ tarafını sürükleyerek bakış · düğmelerle koş, fener ve eşya al</p>
+<p><b>Telefon:</b> Sol çubuk hareket · sağ ekran bakış · düğmelerle koş, fener ve eşya al</p>
 <button id="startBtn">VARDİYAYA BAŞLA</button>
 <p class="small">İlk açılışta internet gerekir; Three.js kütüphanesi CDN'den yüklenir.</p>
 </div></div>
@@ -301,6 +296,7 @@ document.getElementById('startBtn').addEventListener('click',()=>{
  started=true;
  startScreen.style.display='none';
  camera.position.set(0,1.65,10);
+ screen.orientation?.lock?.('landscape').catch(()=>{});
 });
 const clock=new THREE.Clock();
 let elapsed=0;
@@ -309,14 +305,16 @@ function animate(){
  const dt=Math.min(clock.getDelta(),.04);
  elapsed+=dt;
  if(started&&!gameOver){
-  let forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-joy.y;
-  let side=(keys.KeyD?1:0)-(keys.KeyA?1:0)+joy.x;
-  const inputLen=Math.hypot(forward,side);
-  if(inputLen>1){forward/=inputLen;side/=inputLen}
+  let forwardInput=(keys.KeyS?1:0)-(keys.KeyW?1:0);
+  let sideInput=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  let moveX=sideInput+joy.x;
+  let moveZ=forwardInput+joy.y;
+  const inputLen=Math.hypot(moveX,moveZ);
+  if(inputLen>1){moveX/=inputLen;moveZ/=inputLen}
   const sprint=keys.ShiftLeft||keys.ShiftRight||running;
   const speed=(sprint?5.3:3.1)*dt;
-  const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed;
-  const dz=(-Math.cos(yaw)*forward+Math.sin(yaw)*side)*speed;
+  const dx=moveX*speed;
+  const dz=moveZ*speed;
   const nextX=camera.position.clone();
   nextX.x+=dx;
   const nextZ=camera.position.clone();
