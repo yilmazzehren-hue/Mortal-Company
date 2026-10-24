@@ -23,30 +23,28 @@ button{border:0;border-radius:12px;background:#b7ef7b;color:#17210e;padding:12px
 .small{font-size:11px;color:#9eb0bf}
 #mobileControls{position:fixed;inset:0;z-index:3;pointer-events:none;display:none}
 #stickBase{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(18px,env(safe-area-inset-bottom));width:120px;height:120px;border-radius:50%;background:#b8d8ef22;border:2px solid #c8e6ff66;pointer-events:auto;touch-action:none}
-#stick{position:absolute;left:33px;top:33px;width:50px;height:50px;border-radius:50%;background:#c8e6ff99;border:2px solid #eff8ff;pointer-events:none}
+#stick{position:absolute;left:50%;top:50%;width:50px;height:50px;transform:translate(-50%,-50%);border-radius:50%;background:#c8e6ff99;border:2px solid #eff8ff;pointer-events:none}
 .action{position:absolute;right:max(18px,env(safe-area-inset-right));width:62px;height:62px;border-radius:50%;background:#152b3ccc;border:2px solid #d7ecff99;color:white;font-size:10px;pointer-events:auto;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px}
 #useBtn{bottom:max(22px,env(safe-area-inset-bottom))}
 #lightBtn{bottom:max(94px,calc(env(safe-area-inset-bottom) + 76px));right:max(88px,calc(env(safe-area-inset-right) + 70px))}
 #runBtn{bottom:max(94px,calc(env(safe-area-inset-bottom) + 76px))}
 #hint{position:fixed;bottom:5px;left:50%;transform:translateX(-50%);color:#b7c8d7;font-size:10px;z-index:2;text-align:center;width:95%;pointer-events:none}
-@media (pointer:coarse){#mobileControls{display:block}}
-@media (orientation:portrait) and (pointer:coarse){
- #start:after{content:"📱 Daha iyi kontrol için telefonu yatay çevir";position:absolute;bottom:10px;left:0;right:0;text-align:center;color:#c7d5e2;font-size:12px;pointer-events:none}
- #top{font-size:10px;padding:6px 8px}
- #objective{font-size:10px;max-width:48vw;top:8px}
- #stickBase{width:105px;height:105px}
- #stick{left:27px;top:27px}
- .action{width:54px;height:54px;font-size:9px}
+
+#rotateWarning{position:fixed;inset:0;background:#080b10;color:#eef5ff;z-index:100;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:18px;font-weight:700}
+@media (orientation:portrait){
+ #rotateWarning{display:flex}
 }
+@media (pointer:coarse){#mobileControls{display:block}}
 </style>
 </head>
 <body>
+<div id="rotateWarning">📱 Lütfen oyunu oynamak için telefonunuzu yatay (landscape) konuma çevirin!</div>
 <div id="start"><div id="panel">
-<div class="small">BAĞIMSIZ 3D KORKU PROTOTİPİ • SÜRÜM 0.2</div>
+<div class="small">BAĞIMSIZ 3D KORKU PROTOTİPİ • SÜRÜM 0.2.1</div>
 <h1>🌘 Karanlık Vardiya</h1>
-<p>Terk edilmiş bir tesiste ganimet topla, yaratığa yakalanmadan çıkış kapısına dön. Bu ilk prototip; çevrim içi çok oyunculu henüz eklenmedi.</p>
+<p>Terk edilmiş bir tesiste ganimet topla, yaratığa yakalanmadan çıkış kapısına dön.</p>
 <p><b>Bilgisayar:</b> WASD hareket · fare bakış · Shift koş · E ganimet al · F el feneri</p>
-<p><b>Telefon:</b> Sol çubuk hareket · ekranın sağ tarafını sürükleyerek bakış · düğmelerle koş, fener ve eşya al</p>
+<p><b>Telefon (Yatay):</b> Sol çubuk hareket · ekranın sağ tarafını sürükleyerek bakış · düğmelerle koş, fener ve eşya al</p>
 <button id="startBtn">VARDİYAYA BAŞLA</button>
 <p class="small">İlk açılışta internet gerekir; Three.js kütüphanesi CDN'den yüklenir.</p>
 </div></div>
@@ -202,7 +200,8 @@ document.addEventListener('mousemove',e=>{
 let joy={x:0,y:0},joystickActive=false,joyId=null,lookId=null,lastX=0,lastY=0;
 const base=document.getElementById('stickBase');
 const stick=document.getElementById('stick');
-const JOY_MAX=38;
+const JOY_MAX=40;
+
 function updateJoy(e){
  const r=base.getBoundingClientRect();
  const cx=r.left+r.width/2,cy=r.top+r.height/2;
@@ -211,7 +210,7 @@ function updateJoy(e){
  if(len>JOY_MAX){dx=dx/len*JOY_MAX;dy=dy/len*JOY_MAX}
  joy.x=dx/JOY_MAX;
  joy.y=dy/JOY_MAX;
- stick.style.transform=`translate(${dx}px,${dy}px)`;
+ stick.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 }
 base.addEventListener('pointerdown',e=>{
  e.preventDefault();
@@ -228,7 +227,7 @@ function releaseJoy(e){
  joystickActive=false;
  joyId=null;
  joy={x:0,y:0};
- stick.style.transform='translate(0px,0px)';
+ stick.style.transform='translate(-50%, -50%)';
 }
 base.addEventListener('pointerup',releaseJoy);
 base.addEventListener('pointercancel',releaseJoy);
@@ -310,7 +309,6 @@ function animate(){
  const dt=Math.min(clock.getDelta(),.04);
  elapsed+=dt;
  if(started&&!gameOver){
-  // Tek bir normalize edilmiş hareket vektörü: çapraz hareket hızını sabitler.
   let forward=(keys.KeyW?1:0)-(keys.KeyS?1:0)-joy.y;
   let side=(keys.KeyD?1:0)-(keys.KeyA?1:0)+joy.x;
   const inputLen=Math.hypot(forward,side);
@@ -319,10 +317,6 @@ function animate(){
   const speed=(sprint?5.3:3.1)*dt;
   const dx=(Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed;
   const dz=(-Math.cos(yaw)*forward+Math.sin(yaw)*side)*speed;
-  const next=camera.position.clone();
-  next.x+=dx;
-  next.z+=dz;
-  // X ve Z ayrı kontrol edilir; duvar köşelerinde takılma azaltılır.
   const nextX=camera.position.clone();
   nextX.x+=dx;
   const nextZ=camera.position.clone();
@@ -381,7 +375,6 @@ function resizeGame(){
  renderer.setSize(innerWidth,innerHeight);
 }
 addEventListener('resize',resizeGame);
-addEventListener('orientationchange',()=>setTimeout(resizeGame,150));
 </script>
 </body>
 </html>
